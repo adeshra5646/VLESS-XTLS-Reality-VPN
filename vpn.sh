@@ -211,7 +211,7 @@ make_link() {
     return 1
   fi
 
-  echo "vless://${uuid}@${SERVER_IP}:${PORT}?encryption=none&security=reality&sni=${TARGET}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&headerType=none#${label}"
+  echo "vless://${uuid}@${SERVER_IP}:${PORT}?encryption=none&security=reality&sni=${TARGET}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&flow=xtls-rprx-vision&headerType=none#${label}"
 }
 
 # ══════════════════════════════════════════════════════════════
@@ -428,7 +428,7 @@ write_xray_config() {
         "clients": [
           {
             "id": "${uuid}",
-            "flow": ""
+            "flow": "xtls-rprx-vision"
           }
         ],
         "decryption": "none"
