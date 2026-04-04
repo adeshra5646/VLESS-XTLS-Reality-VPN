@@ -1,16 +1,23 @@
 #!/bin/bash
 
 # ═══════════════════════════════════════════════════════
-#   VLESS + XTLS-Reality AUTO-SETUP + SECURITY
-#   v3.1 — single link, unlimited devices, menu-driven
+#          VLESS + XTLS-Reality AUTO-SETUP
 # ═══════════════════════════════════════════════════════
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+set -u
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
 
 CONFIG="/usr/local/etc/xray/config.json"
 INFO_FILE="/root/vpn-info.txt"
-XRAY_CMD=$(command -v xray 2>/dev/null || echo "/usr/local/bin/xray")
+LOG_FILE="/root/setup.log"
+XRAY_CMD="$(command -v xray 2>/dev/null || echo /usr/local/bin/xray)"
+SSH_PORT="22"
 
 # ── Root check ────────────────────────────────────────
 if [ "$EUID" -ne 0 ]; then
@@ -28,30 +35,94 @@ fi
 #   HELPERS
 # ══════════════════════════════════════════════════════
 
+print_header() {
+  echo ""
+  echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}║     VLESS + Reality — Management Menu      ║${NC}"
+  echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+}
+
+xray_installed() {
+  command -v xray >/dev/null 2>&1 || [ -x "/usr/local/bin/xray" ]
+}
+
+get_xray_cmd() {
+  XRAY_CMD="$(command -v xray 2>/dev/null || echo /usr/local/bin/xray)"
+}
+
+get_public_ip() {
+  local ip=""
+  ip=$(curl -4 -s --max-time 5 https://api.ipify.org \
+    || curl -4 -s --max-time 5 https://ifconfig.me \
+    || curl -4 -s --max-time 5 https://icanhazip.com \
+    || true)
+  echo "$ip" | tr -d '[:space:]'
+}
+
 get_server_info() {
-  SERVER_IP=$(curl -4 -s --max-time 5 https://api.ipify.org \
-           || curl -4 -s --max-time 5 https://ifconfig.me \
-           || curl -4 -s --max-time 5 https://icanhazip.com)
-  SERVER_IP=$(echo "$SERVER_IP" | tr -d '[:space:]')
+  SERVER_IP="$(get_public_ip)"
 
   if [ -f "$CONFIG" ]; then
-    PORT=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d['inbounds'][0]['port'])" 2>/dev/null || echo "443")
-    PRIVATE_KEY=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d['inbounds'][0]['streamSettings']['realitySettings']['privateKey'])" 2>/dev/null || echo "")
-    SHORT_ID=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0])" 2>/dev/null || echo "")
-    TARGET=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0])" 2>/dev/null || echo "")
-    FINGERPRINT=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d['inbounds'][0]['streamSettings']['realitySettings'].get('fingerprint','chrome'))" 2>/dev/null || echo "chrome")
-    PUBLIC_KEY=$($XRAY_CMD x25519 -i "$PRIVATE_KEY" 2>/dev/null | grep -i "Public" | awk '{print $NF}' | tr -d '[:space:]')
-    UUID=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d['inbounds'][0]['settings']['clients'][0]['id'])" 2>/dev/null || echo "")
+    PORT=$(python3 - <<PY 2>/dev/null || echo "443"
+import json
+with open("$CONFIG", "r") as f:
+    d = json.load(f)
+print(d["inbounds"][0]["port"])
+PY
+)
+
+    PRIVATE_KEY=$(python3 - <<PY 2>/dev/null || echo ""
+import json
+with open("$CONFIG", "r") as f:
+    d = json.load(f)
+print(d["inbounds"][0]["streamSettings"]["realitySettings"]["privateKey"])
+PY
+)
+
+    SHORT_ID=$(python3 - <<PY 2>/dev/null || echo ""
+import json
+with open("$CONFIG", "r") as f:
+    d = json.load(f)
+print(d["inbounds"][0]["streamSettings"]["realitySettings"]["shortIds"][0])
+PY
+)
+
+    TARGET=$(python3 - <<PY 2>/dev/null || echo ""
+import json
+with open("$CONFIG", "r") as f:
+    d = json.load(f)
+print(d["inbounds"][0]["streamSettings"]["realitySettings"]["serverNames"][0])
+PY
+)
+
+    UUID=$(python3 - <<PY 2>/dev/null || echo ""
+import json
+with open("$CONFIG", "r") as f:
+    d = json.load(f)
+print(d["inbounds"][0]["settings"]["clients"][0]["id"])
+PY
+)
+
+    get_xray_cmd
+    PUBLIC_KEY=$("$XRAY_CMD" x25519 -i "$PRIVATE_KEY" 2>/dev/null | awk '/Public key/ {print $3}' | tr -d '[:space:]')
   fi
 }
 
 make_link() {
-  local uuid="$1" label="${2:-MyVPN}"
-  echo "vless://${uuid}@${SERVER_IP}:${PORT}?encryption=none&security=reality&sni=${TARGET}&fp=${FINGERPRINT}&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&flow=xtls-rprx-vision&headerType=none#${label}"
+  local uuid="$1"
+  local label="${2:-MyVPN}"
+  echo "vless://${uuid}@${SERVER_IP}:${PORT}?encryption=none&security=reality&sni=${TARGET}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&flow=xtls-rprx-vision&headerType=none#${label}"
 }
 
-xray_installed() {
-  command -v xray &>/dev/null || [ -f "/usr/local/bin/xray" ]
+wait_xray() {
+  local i
+  for i in {1..10}; do
+    if systemctl is-active --quiet xray; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
 }
 
 # ══════════════════════════════════════════════════════
@@ -64,68 +135,44 @@ do_install() {
   echo -e "${CYAN}║              Installing VLESS Reality            ║${NC}"
   echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
 
-  # Redirect all output to log as well
-  exec > >(tee /root/setup.log) 2>&1
+  : > "$LOG_FILE"
+  exec > >(tee -a "$LOG_FILE") 2>&1
 
-  # ── Fingerprint ─────────────────────────────────────
-  echo ""
-  echo -e "${YELLOW}Choose TLS fingerprint:${NC}"
-  echo "  1) chrome  (default)"
-  echo "  2) firefox"
-  echo "  3) safari"
-  echo "  4) edge"
-  read -rp "$(echo -e "${YELLOW}Your choice [1-4, default 1]: ${NC}")" FP_CHOICE
-  case "$FP_CHOICE" in
-    2) FINGERPRINT="firefox" ;;
-    3) FINGERPRINT="safari"  ;;
-    4) FINGERPRINT="edge"    ;;
-    *) FINGERPRINT="chrome"  ;;
-  esac
-  echo -e "${GREEN}▶ Fingerprint : ${FINGERPRINT}${NC}"
-
-  # ── Server IP ───────────────────────────────────────
-  SERVER_IP=$(curl -4 -s --max-time 5 https://api.ipify.org \
-           || curl -4 -s --max-time 5 https://ifconfig.me \
-           || curl -4 -s --max-time 5 https://icanhazip.com)
-  SERVER_IP=$(echo "$SERVER_IP" | tr -d '[:space:]')
-  [ -z "$SERVER_IP" ] && { echo -e "${RED}Error: cannot determine server IP.${NC}"; return 1; }
-  echo -e "${GREEN}▶ Server IP   : ${SERVER_IP}${NC}"
-
-  # ── Port 443 ────────────────────────────────────────
-  PORT=443
-  if ss -tlnp | grep -q ":${PORT} "; then
-    echo -e "${RED}Error: port 443 is already in use. Stop the service and retry.${NC}"
-    ss -tlnp | grep ":${PORT} "
+  SERVER_IP="$(get_public_ip)"
+  if [ -z "$SERVER_IP" ]; then
+    echo -e "${RED}Error: cannot determine server IP.${NC}"
     return 1
   fi
-  echo -e "${GREEN}▶ VPN port    : ${PORT} (HTTPS/Reality)${NC}"
+  echo -e "${GREEN}▶ Server IP   : ${SERVER_IP}${NC}"
 
-  # ── Packages ────────────────────────────────────────
+  PORT="443"
+  if ss -ltnp 2>/dev/null | grep -q ":${PORT} "; then
+    echo -e "${RED}Error: port 443 is already in use. Stop the service and retry.${NC}"
+    ss -ltnp | grep ":${PORT} "
+    return 1
+  fi
+  echo -e "${GREEN}▶ VPN port    : ${PORT}${NC}"
+  echo -e "${GREEN}▶ SSH port    : ${SSH_PORT}${NC}"
+
   echo -e "${YELLOW}▶ Installing packages...${NC}"
   apt-get update -qq
   apt-get install -y -qq \
-    curl unzip openssl netcat-openbsd \
-    qrencode ufw fail2ban unattended-upgrades \
-    2>/dev/null
+    curl unzip openssl netcat-openbsd qrencode ufw fail2ban \
+    unattended-upgrades ca-certificates python3 lsb-release >/dev/null
   echo -e "${GREEN}▶ Packages installed${NC}"
 
-  # ── UFW ─────────────────────────────────────────────
-  SSH_PORT=$(ss -tlnp 2>/dev/null | grep sshd | awk '{print $4}' | awk -F':' '{print $NF}' | head -n1)
-  SSH_PORT=${SSH_PORT:-22}
-  echo -e "${GREEN}▶ SSH port    : ${SSH_PORT}${NC}"
-
-  [ -f /etc/default/ufw ] && sed -i 's/^IPV6=no/IPV6=yes/' /etc/default/ufw
-
+  echo -e "${YELLOW}▶ Configuring UFW...${NC}"
+  [ -f /etc/default/ufw ] && sed -i 's/^IPV6=no/IPV6=yes/' /etc/default/ufw || true
   ufw --force reset >/dev/null 2>&1
-  ufw default deny incoming  >/dev/null
+  ufw default deny incoming >/dev/null
   ufw default allow outgoing >/dev/null
-  ufw allow "${SSH_PORT}/tcp" comment 'SSH'
-  ufw allow 443/tcp           comment 'VLESS-Reality'
+  ufw allow 22/tcp comment 'SSH'
+  ufw allow 443/tcp comment 'VLESS-Reality'
   ufw --force enable >/dev/null
-  echo -e "${GREEN}▶ UFW active (SSH:${SSH_PORT}, VPN:443)${NC}"
+  echo -e "${GREEN}▶ UFW active (SSH:22, VPN:443)${NC}"
 
-  # ── Fail2Ban ────────────────────────────────────────
-  cat > /etc/fail2ban/jail.local << EOF
+  echo -e "${YELLOW}▶ Configuring Fail2Ban...${NC}"
+  cat > /etc/fail2ban/jail.local <<EOF
 [DEFAULT]
 bantime  = 3600
 findtime = 600
@@ -134,27 +181,27 @@ ignoreip = 127.0.0.1/8
 
 [sshd]
 enabled  = true
-port     = ${SSH_PORT}
+port     = 22
 logpath  = %(sshd_log)s
 backend  = systemd
 maxretry = 3
 bantime  = 86400
 EOF
-  systemctl enable fail2ban --quiet
+  systemctl enable fail2ban >/dev/null 2>&1 || true
   systemctl restart fail2ban
-  echo -e "${GREEN}▶ Fail2Ban active (ban after 3 attempts, 24h)${NC}"
+  echo -e "${GREEN}▶ Fail2Ban active${NC}"
 
-  # ── Auto-updates ────────────────────────────────────
-  cat > /etc/apt/apt.conf.d/20auto-upgrades << 'EOF'
+  echo -e "${YELLOW}▶ Enabling auto security updates...${NC}"
+  cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 APT::Periodic::AutocleanInterval "7";
 EOF
   echo -e "${GREEN}▶ Auto security updates enabled${NC}"
 
-  # ── Kernel hardening + BBR ──────────────────────────
+  echo -e "${YELLOW}▶ Applying kernel tuning...${NC}"
   sed -i '/# --- vless-setup-start ---/,/# --- vless-setup-end ---/d' /etc/sysctl.conf
-  cat >> /etc/sysctl.conf << 'EOF'
+  cat >> /etc/sysctl.conf <<'EOF'
 
 # --- vless-setup-start ---
 net.ipv4.conf.all.rp_filter = 1
@@ -167,45 +214,62 @@ net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 # --- vless-setup-end ---
 EOF
-  sysctl -p >/dev/null 2>&1
+  sysctl -p >/dev/null 2>&1 || true
   echo -e "${GREEN}▶ Kernel hardening + BBR enabled${NC}"
 
-  # ── Install Xray ────────────────────────────────────
   echo -e "${YELLOW}▶ Installing Xray...${NC}"
-  bash <(curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh) 1>/dev/null
-  XRAY_CMD=$(command -v xray || echo "/usr/local/bin/xray")
+  bash <(curl -Ls https://github.com/XTLS/Xray-install/raw/main/install-release.sh) install >/dev/null
+  get_xray_cmd
+  if ! xray_installed; then
+    echo -e "${RED}Error: Xray install failed.${NC}"
+    return 1
+  fi
   echo -e "${GREEN}▶ Xray installed${NC}"
 
-  # ── Generate keys ───────────────────────────────────
   echo -e "${YELLOW}▶ Generating keys...${NC}"
-  KEYS=$($XRAY_CMD x25519)
-  PRIVATE_KEY=$(echo "$KEYS" | grep -i "Private" | awk '{print $NF}' | tr -d '[:space:]')
-  PUBLIC_KEY=$(echo "$KEYS"  | grep -i "Public"  | awk '{print $NF}' | tr -d '[:space:]')
-  UUID=$($XRAY_CMD uuid | tr -d '[:space:]')
+  KEYS=$("$XRAY_CMD" x25519)
+  PRIVATE_KEY=$(echo "$KEYS" | awk '/Private key/ {print $3}' | tr -d '[:space:]')
+  PUBLIC_KEY=$(echo "$KEYS" | awk '/Public key/ {print $3}' | tr -d '[:space:]')
+  UUID=$("$XRAY_CMD" uuid | tr -d '[:space:]')
   SHORT_ID=$(openssl rand -hex 8 | tr -d '[:space:]')
 
-  [ -z "$PRIVATE_KEY" ] || [ -z "$UUID" ] && { echo -e "${RED}Error: key generation failed.${NC}"; return 1; }
+  if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$UUID" ] || [ -z "$SHORT_ID" ]; then
+    echo -e "${RED}Error: failed to generate Reality credentials.${NC}"
+    return 1
+  fi
 
-  # ── SNI target ──────────────────────────────────────
-  TARGETS=("www.microsoft.com" "www.samsung.com" "www.asus.com" "dl.google.com")
+  echo -e "${YELLOW}▶ Selecting SNI target...${NC}"
+  TARGETS=(
+    "www.microsoft.com"
+    "www.cloudflare.com"
+    "www.apple.com"
+    "www.amazon.com"
+  )
+
   TARGET=""
-  echo -e "${YELLOW}▶ Checking SNI targets...${NC}"
   for t in "${TARGETS[@]}"; do
-    if nc -z -w3 "$t" 443 2>/dev/null; then
+    if nc -z -w3 "$t" 443 >/dev/null 2>&1; then
       TARGET="$t"
-      echo -e "${GREEN}▶ SNI target  : ${TARGET} (reachable)${NC}"
       break
     fi
   done
-  [ -z "$TARGET" ] && { TARGET="www.microsoft.com"; echo -e "${YELLOW}⚠  Defaulting to ${TARGET}${NC}"; }
 
-  # ── Xray config ─────────────────────────────────────
-  # No limitIp field = unlimited simultaneous connections on one link
-  cat > "$CONFIG" << EOF
+  if [ -z "$TARGET" ]; then
+    TARGET="www.microsoft.com"
+  fi
+  echo -e "${GREEN}▶ SNI target  : ${TARGET}${NC}"
+
+  mkdir -p "$(dirname "$CONFIG")"
+
+  echo -e "${YELLOW}▶ Writing Xray config...${NC}"
+  cat > "$CONFIG" <<EOF
 {
-  "log": { "loglevel": "warning" },
+  "log": {
+    "loglevel": "warning"
+  },
   "inbounds": [
     {
+      "listen": "0.0.0.0",
       "port": ${PORT},
       "protocol": "vless",
       "settings": {
@@ -224,75 +288,90 @@ EOF
         "realitySettings": {
           "show": false,
           "dest": "${TARGET}:443",
-          "serverNames": ["${TARGET}"],
+          "serverNames": [
+            "${TARGET}"
+          ],
           "privateKey": "${PRIVATE_KEY}",
-          "shortIds": ["${SHORT_ID}"],
-          "fingerprint": "${FINGERPRINT}"
+          "shortIds": [
+            "${SHORT_ID}"
+          ]
         }
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     }
   ],
   "outbounds": [
-    { "protocol": "freedom", "tag": "direct" },
-    { "protocol": "blackhole", "tag": "block" }
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block"
+    }
   ]
 }
 EOF
 
-  # ── Systemd watchdog ────────────────────────────────
-  XRAY_SERVICE="/etc/systemd/system/xray.service"
-  if [ -f "$XRAY_SERVICE" ] && ! grep -q "Restart=always" "$XRAY_SERVICE"; then
-    sed -i '/\[Service\]/a Restart=always\nRestartSec=5' "$XRAY_SERVICE"
-    systemctl daemon-reload
-  fi
-  echo -e "${GREEN}▶ Watchdog configured (auto-restart on crash)${NC}"
+  mkdir -p /etc/systemd/system/xray.service.d
+  cat > /etc/systemd/system/xray.service.d/override.conf <<'EOF'
+[Service]
+Restart=always
+RestartSec=5
+EOF
 
-  # ── Start Xray ──────────────────────────────────────
-  systemctl enable xray --quiet
+  systemctl daemon-reload
+  systemctl enable xray >/dev/null 2>&1 || true
   systemctl restart xray
-  sleep 2
 
-  if ! systemctl is-active --quiet xray; then
+  if ! wait_xray; then
     echo -e "${RED}Error: Xray failed to start.${NC}"
-    journalctl -u xray -n 20 --no-pager
+    journalctl -u xray -n 50 --no-pager
     return 1
   fi
+
+  if ! ss -ltnp 2>/dev/null | grep -q ":443 "; then
+    echo -e "${RED}Error: Xray is running but 443 is not listening.${NC}"
+    journalctl -u xray -n 50 --no-pager
+    return 1
+  fi
+
   echo -e "${GREEN}▶ Xray started${NC}"
 
-  # ── Build link ──────────────────────────────────────
-  VLESS_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&security=reality&sni=${TARGET}&fp=${FINGERPRINT}&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&flow=xtls-rprx-vision&headerType=none#MyVPN"
+  VLESS_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&security=reality&sni=${TARGET}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&flow=xtls-rprx-vision&headerType=none#MyVPN"
 
-  # ── Save info ───────────────────────────────────────
-  cat > "$INFO_FILE" << EOF
+  cat > "$INFO_FILE" <<EOF
 ════════════════════════════════════════════════════
-  VLESS + XTLS-Reality — connection details v3.1
+  VLESS + XTLS-Reality — connection details
 ════════════════════════════════════════════════════
 
 Server IP    : ${SERVER_IP}
 VPN Port     : ${PORT}
-SSH Port     : ${SSH_PORT}
+SSH Port     : 22
 UUID         : ${UUID}
 Public Key   : ${PUBLIC_KEY}
 Short ID     : ${SHORT_ID}
 SNI Target   : ${TARGET}
-Fingerprint  : ${FINGERPRINT}
+Fingerprint  : chrome
 Flow         : xtls-rprx-vision
-Connections  : unlimited (no limitIp)
+Connections  : unlimited
 
 IMPORT LINK:
 ${VLESS_LINK}
 
 ════════════════════════════════════════════════════
-  Generated : $(date '+%Y-%m-%d %H:%M:%S %Z')
-  Manage    : bash $(realpath "$0")
+Generated : $(date '+%Y-%m-%d %H:%M:%S %Z')
+Manage    : bash $(realpath "$0")
 ════════════════════════════════════════════════════
 EOF
 
-  # ── Final output ────────────────────────────────────
   echo ""
   echo -e "${CYAN}╔══════════════════════════════════════════════════╗${NC}"
   echo -e "${CYAN}║           ✅ Installation complete!              ║${NC}"
@@ -305,17 +384,14 @@ EOF
   echo -e "${YELLOW}════════════════════════════${NC}"
   echo ""
   echo -e "${CYAN}📁 Details : ${BOLD}${INFO_FILE}${NC}"
-  echo -e "${CYAN}📋 Log     : ${BOLD}/root/setup.log${NC}"
-  echo -e "${CYAN}📱 App     : ${BOLD}https://hiddify.com${NC}"
+  echo -e "${CYAN}📋 Log     : ${BOLD}${LOG_FILE}${NC}"
   echo ""
   echo -e "${GREEN}Security:${NC}"
-  echo "   ✅ UFW         — SSH (${SSH_PORT}) + VPN (443) only"
-  echo "   ✅ Fail2Ban    — ban after 3 failed SSH attempts (24h)"
-  echo "   ✅ BBR         — congestion control enabled"
-  echo "   ✅ Auto-updates — security patches automatic"
-  echo "   ✅ Watchdog    — Xray restarts on crash"
-  echo "   ✅ Flow        — xtls-rprx-vision"
-  echo "   ✅ Unlimited   — no connection limit per link"
+  echo "   ✅ UFW          — only SSH 22 and VPN 443"
+  echo "   ✅ Fail2Ban     — SSH protection enabled"
+  echo "   ✅ BBR          — enabled"
+  echo "   ✅ Auto-updates — enabled"
+  echo "   ✅ Watchdog     — xray auto-restart enabled"
   echo ""
 }
 
@@ -328,9 +404,10 @@ do_start() {
     echo -e "${RED}Xray is not installed. Run option 1 first.${NC}"
     return 1
   fi
+
   systemctl start xray
-  sleep 1
-  if systemctl is-active --quiet xray; then
+
+  if wait_xray; then
     echo -e "${GREEN}▶ Xray started successfully.${NC}"
     if [ -f "$CONFIG" ]; then
       get_server_info
@@ -340,7 +417,7 @@ do_start() {
     fi
   else
     echo -e "${RED}Error: Xray failed to start.${NC}"
-    journalctl -u xray -n 20 --no-pager
+    journalctl -u xray -n 50 --no-pager
   fi
 }
 
@@ -353,13 +430,19 @@ do_restart() {
     echo -e "${RED}Xray is not installed. Run option 1 first.${NC}"
     return 1
   fi
+
   systemctl restart xray
-  sleep 1
-  if systemctl is-active --quiet xray; then
+
+  if wait_xray; then
     echo -e "${GREEN}▶ Xray restarted successfully.${NC}"
+    if [ -f "$CONFIG" ]; then
+      get_server_info
+      echo -e "${CYAN}Current link:${NC}"
+      echo -e "${BOLD}${GREEN}$(make_link "$UUID" "MyVPN")${NC}"
+    fi
   else
     echo -e "${RED}Error: Xray failed to restart.${NC}"
-    journalctl -u xray -n 20 --no-pager
+    journalctl -u xray -n 50 --no-pager
   fi
 }
 
@@ -373,23 +456,23 @@ do_uninstall() {
   read -rp "$(echo -e "${YELLOW}Are you sure? [y/N]: ${NC}")" CONFIRM
   [[ "${CONFIRM,,}" != "y" ]] && { echo "Cancelled."; return; }
 
-  systemctl stop xray    2>/dev/null || true
+  systemctl stop xray 2>/dev/null || true
   systemctl disable xray 2>/dev/null || true
-  bash <(curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh) --remove 1>/dev/null 2>&1 || true
-  rm -f "$CONFIG" "$INFO_FILE"
-  echo -e "${GREEN}▶ Xray removed.${NC}"
+  rm -rf /etc/systemd/system/xray.service.d
+  systemctl daemon-reload
 
-  ufw --force reset   >/dev/null 2>&1 || true
+  bash <(curl -Ls https://github.com/XTLS/Xray-install/raw/main/install-release.sh) remove >/dev/null 2>&1 || true
+
+  rm -f "$CONFIG" "$INFO_FILE" "$LOG_FILE"
+
+  ufw --force reset >/dev/null 2>&1 || true
   ufw --force disable >/dev/null 2>&1 || true
-  echo -e "${GREEN}▶ UFW rules cleared.${NC}"
 
   sed -i '/# --- vless-setup-start ---/,/# --- vless-setup-end ---/d' /etc/sysctl.conf
-  sysctl -p >/dev/null 2>&1
-  echo -e "${GREEN}▶ Sysctl entries removed.${NC}"
+  sysctl -p >/dev/null 2>&1 || true
 
   rm -f /etc/fail2ban/jail.local
   systemctl restart fail2ban 2>/dev/null || true
-  echo -e "${GREEN}▶ Fail2Ban config cleared.${NC}"
 
   echo ""
   echo -e "${GREEN}✅ Uninstall complete. Server is clean.${NC}"
@@ -400,12 +483,8 @@ do_uninstall() {
 # ══════════════════════════════════════════════════════
 
 while true; do
-  echo ""
-  echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
-  echo -e "${CYAN}║     VLESS + Reality — Management Menu      ║${NC}"
-  echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+  print_header
 
-  # Live status indicator
   if systemctl is-active --quiet xray 2>/dev/null; then
     echo -e "   Status : ${GREEN}● running${NC}"
   elif xray_installed; then
@@ -424,9 +503,9 @@ while true; do
   read -rp "$(echo -e "${YELLOW}  Choice: ${NC}")" MENU_CHOICE
 
   case "$MENU_CHOICE" in
-    1) do_install   ;;
-    2) do_start     ;;
-    3) do_restart   ;;
+    1) do_install ;;
+    2) do_start ;;
+    3) do_restart ;;
     4) do_uninstall ;;
     0) echo "Bye."; exit 0 ;;
     *) echo -e "${RED}Unknown option.${NC}" ;;
