@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # ═══════════════════════════════════════════════════════
-#   VLESS + XTLS-Reality AUTO-SETUP + SECURITY
-#   v2.1 — port 443 for better masquerading
+#          VLESS + XTLS-Reality AUTO-SETUP 
 # ═══════════════════════════════════════════════════════
 
 set -e
